@@ -17,7 +17,7 @@ type Enigma {
     posicao: Posicao,
     codigo: String,
     alternativas: List(String),
-    // Alternativa correta: 1, 2 ou 3
+    // alternativa correta 1, 2 ou 3
     resposta_correta: Int,
     resolvido: Bool,
   )
@@ -35,7 +35,7 @@ type Partida {
     saida: Posicao,
     enigmas: List(Enigma),
     modo: Modo,
-    // Tiques que faltam para o tempo acabar
+    // tiques que faltam para o tempo acabar
     tiques_restantes: Int,
   )
 }
