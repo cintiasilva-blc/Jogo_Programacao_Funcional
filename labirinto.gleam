@@ -85,7 +85,7 @@ const altura = 590
 // # é parede, . é corredor, S e T são os inícios e P é a porta.
 // Os dois inícios têm a mesma distância mínima até a porta.
 
-const labirinto_dificil_1 = [
+const labirinto_1 = [
   "..#.#..#.#.#.#.#.#..",
   "#.....#...........#.",
   "..###.#######.###.#.",
@@ -108,7 +108,7 @@ const labirinto_dificil_1 = [
   "........#.#.........",
 ]
 
-const labirinto_dificil_2 = [
+const labirinto_2 = [
   ".#T.#.#.#.#.#..#.#..",
   "..#...........#...#.",
   "#.#.#.#######.#.#.#.",
@@ -154,7 +154,7 @@ const labirinto_dificil_3 = [
   "......#.......#.....",
 ]
 
-const labirinto_dificil_4 = [
+const labirinto_4 = [
   "..#.#..#S#.#.#.#..#.",
   "#.....#T........#...",
   ".##.#.#.#######.#.##",
@@ -177,7 +177,7 @@ const labirinto_dificil_4 = [
   "..........#.........",
 ]
 
-const labirinto_dificil_5 = [
+const labirinto_5 = [
   "#..#.#.#.#..#.#.##..",
   "..#.......#.......#.",
   "#.#.#.###.#.#####.#.",
@@ -222,7 +222,7 @@ pub type Mapa {
 }
 
 /// O formato de uma expressão aritmética, com os números a, b, c e d.
-pub type Formato {
+pub type Expressao {
   FormatoA
   FormatoB
   FormatoC
@@ -372,11 +372,11 @@ pub fn ler_mapa_examples() {
 pub fn mapas() -> List(Mapa) {
   list.map(
     [
-      labirinto_dificil_1,
-      labirinto_dificil_2,
-      labirinto_dificil_3,
-      labirinto_dificil_4,
-      labirinto_dificil_5,
+      labirinto_1,
+      labirinto_2,
+      labirinto_3,
+      labirinto_4,
+      labirinto_5,
     ],
     ler_mapa,
   )
@@ -701,7 +701,7 @@ pub fn troca_acao_examples() {
 
 /// Calcula o valor da expressão de *formato* com os números *a*, *b*, *c* e *d*. A multiplicação tem
 /// precedência sobre a soma e a subtração.
-pub fn calcula(formato: Formato, a: Int, b: Int, c: Int, d: Int) -> Int {
+pub fn calcula(formato: Expressao, a: Int, b: Int, c: Int, d: Int) -> Int {
   case formato {
     FormatoA -> { a + b } * c - d
     FormatoB -> { a - b } + c * d
@@ -717,7 +717,7 @@ pub fn calcula_examples() {
 }
 
 /// Escreve a expressão de *formato* com os números *a*, *b*, *c* e *d*.
-pub fn escreve(formato: Formato, a: Int, b: Int, c: Int, d: Int) -> String {
+pub fn escreve(formato: Expressao, a: Int, b: Int, c: Int, d: Int) -> String {
   let n = int.to_string
   case formato {
     FormatoA -> "(" <> n(a) <> " + " <> n(b) <> ") × " <> n(c) <> " - " <> n(d)
@@ -737,7 +737,7 @@ pub fn escreve_examples() {
 /// Monta o enigma do *formato* com os números *a*, *b*, *c* e *d*. As alternativas erradas são a resposta certa
 /// mais as diferenças de *erros*. As diferenças devem ser distintas, diferentes de zero e estar entre -2 e 2,
 /// inclusive. As três alternativas ficam em ordem crescente.
-pub fn monta_enigma(formato: Formato, a: Int, b: Int, c: Int, d: Int, erros: ParErros) -> Enigma {
+pub fn monta_enigma(formato: Expressao, a: Int, b: Int, c: Int, d: Int, erros: ParErros) -> Enigma {
   let certa = calcula(formato, a, b, c, d)
   let alternativas =
     list.sort([certa, certa + erros.primeiro, certa + erros.segundo], int.compare)
