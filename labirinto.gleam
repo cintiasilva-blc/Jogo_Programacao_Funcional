@@ -1,4 +1,3 @@
-
 // Cintia da Silva Bulcão    ra145107
 // Giovana da Silva Bulcão   ra144325
 
@@ -36,7 +35,9 @@
 // - Setas (Cima, Baixo, Esquerda, Direita): movem o personagem uma casa.
 // - 1, 2 ou 3: escolhem a alternativa do enigma.
 
+// -------------------------------------------------------------------------------------------------
 // Imports, constantes, desenho dos labirintos e tipos de dados
+// -------------------------------------------------------------------------------------------------
 
 import gleam/int
 import gleam/list
@@ -265,7 +266,9 @@ pub type ParErros {
   ParErros(primeiro: Int, segundo: Int)
 }
 
+// ------------------------------------------------------------------------------------------------
 // Mworld
+// ------------------------------------------------------------------------------------------------
 
 pub fn smain() {
   mworld.create_from(inicio, min: 2, max: 2, to_image: desenha)
@@ -274,25 +277,24 @@ pub fn smain() {
   |> mworld.on_key_down(tecla)
 }
 
-/// cria o estado inicial do jogo com o gerador de *env*
+/// Cria o estado inicial do jogo a partir do gerador de *env*.
 fn inicio(env: Env, _jogadores: List(mworld.Player)) -> Estado {
   Abertura(env.random(env))
 }
 
-/// desenha a tela do jogador de acordo com o *estado* do jogo
+/// Determina qual tela deve ser mostrada ao jogador de acordo com o *estado*.
 fn desenha(estado: Estado, jogador: mworld.Player) -> Image {
   tela(estado, mworld.player_index(jogador))
 }
 
-/// trata a tecla que o jogador pressionou
+/// Recebe a tecla pressionada pelo jogador e trata o evento.
 fn tecla(estado: Estado, jogador: mworld.Player, evento: key.Event) -> Estado {
   trata_tecla(estado, mworld.player_index(jogador), evento)
 }
 
-// Utilitários
 
-/// devolve os números de *inicio* até *fim* (incluindo os dois)
-/// se *inicio* for maior que *fim*, devolve uma lista vazia
+/// Recebe *inicio* e *fim* e retorna uma lista com os números desse intervalo, incluindo os extremos.
+/// Se *inicio* for maior que *fim*, retorna uma lista vazia.
 pub fn sequencia(inicio: Int, fim: Int) -> List(Int) {
   case inicio > fim {
     True -> []
@@ -305,7 +307,7 @@ pub fn sequencia_examples() {
   check.eq(sequencia(2, 5), [2, 3, 4, 5])
 }
 
-/// devolve todas as casas do labirinto, linha por linha
+/// Gera uma lista com todas as posições do labirinto, percorrendo as linhas em ordem.
 pub fn todas_as_casas() -> List(Posicao) {
   let linhas =
     list.map(sequencia(0, tamanho - 1), fn(lin) {
@@ -318,8 +320,8 @@ pub fn todas_as_casas_examples() {
   check.eq(list.first(todas_as_casas()), Ok(Posicao(0, 0)))
 }
 
-/// sorteia um elemento da *lista* e devolve ele junto com o novo gerador
-/// se a lista estiver vazia, devolve *padrao* no lugar do elemento sorteado
+/// Recebe uma *lista* e sorteia um de seus elementos, retornando também o gerador atualizado.
+/// Se a lista estiver vazia, retorna *padrao* no lugar do elemento.
 pub fn sorteia(gerador: Generator, lista: List(a), padrao: a) -> Sorteio(a) {
   case random.pick(gerador, lista) {
     #(Ok(x), gerador) -> Sorteio(x, gerador)
@@ -329,14 +331,12 @@ pub fn sorteia(gerador: Generator, lista: List(a), padrao: a) -> Sorteio(a) {
 pub fn sorteia_examples() {
   let gerador_teste = random.mock([random.pick_returns([1, 2, 3], Ok(2))])
   check.eq(sorteia(gerador_teste, [1, 2, 3], 0), Sorteio(2, random.mock([])))
-  
   let gerador_teste = random.mock([random.pick_returns([], Error(Nil))])
   check.eq(sorteia(gerador_teste, [], 7), Sorteio(7, random.mock([])))
 }
 
-// Mapas
-
-/// devolve o símbolo da casa *p*, se estiver fora do labirinto devolve "#"
+// MAPAS
+/// Determina o símbolo da casa *p*. Se a posição estiver fora do labirinto, retorna "#".
 pub fn simbolo_em(linhas: List(String), p: Posicao) -> String {
   case p.lin < 0 || p.lin >= tamanho || p.col < 0 || p.col >= tamanho {
     True -> "#"
@@ -350,8 +350,8 @@ pub fn simbolo_em(linhas: List(String), p: Posicao) -> String {
   }
 }
 
-/// procura a primeira casa que contém o *simbolo* nas linhas do mapa
-/// se não encontrar, devolve a posição (0, 0)
+/// Procura a primeira posição que contém o *simbolo* nas linhas do mapa.
+/// Se o símbolo não estiver presente, retorna a posição (0, 0).
 pub fn acha_simbolo(linhas: List(String), simbolo: String) -> Posicao {
   case list.find(todas_as_casas(), fn(p) { simbolo_em(linhas, p) == simbolo }) {
     Ok(p) -> p
@@ -359,12 +359,12 @@ pub fn acha_simbolo(linhas: List(String), simbolo: String) -> Posicao {
   }
 }
 
-/// monta o mapa a partir das linhas, procurando os dois inícios (S e T) e a porta (P)
+/// Cria o mapa identificando nas linhas as posições iniciais (S e T) e a saída (P).
 pub fn ler_mapa(linhas: List(String)) -> Mapa {
   Mapa(linhas, acha_simbolo(linhas, "S"), acha_simbolo(linhas, "T"), acha_simbolo(linhas, "P"))
 }
 
-/// mapa menor para usar nos exemplos, fica no canto superior esquerdo
+/// Representa um mapa menor utilizado nos exemplos, localizado no canto superior esquerdo.
 pub fn mapa_teste() -> Mapa {
   ler_mapa(["#####", "#S.P#", "#T#.#", "#####"])
 }
@@ -379,7 +379,7 @@ pub fn ler_mapa_examples() {
   check.eq(simbolo_em(mapa_teste().linhas, Posicao(0, 20)), "#")
 }
 
-/// devolve a lista com os cinco mapas do jogo
+/// Retorna uma lista com os cinco mapas do jogo.
 pub fn mapas() -> List(Mapa) {
   list.map([labirinto_1, labirinto_2, labirinto_3, labirinto_4, labirinto_5], ler_mapa)
 }
@@ -403,7 +403,7 @@ pub fn mapas_examples() {
   )
 }
 
-/// devolve True se o jogador pode andar na casa *p* (corredor, início ou porta)
+/// Verifica se a casa *p* permite a movimentação do jogador (corredor, início ou porta).
 pub fn caminho_livre(mapa: Mapa, p: Posicao) -> Bool {
   let simbolo = simbolo_em(mapa.linhas, p)
   simbolo == "." || simbolo == "S" || simbolo == "T" || simbolo == "P"
@@ -419,8 +419,7 @@ pub fn caminho_livre_examples() {
   check.eq(caminho_livre(mapa, Posicao(1, 20)), False)
 }
 
-// Teclas
-
+// TECLAS
 /// trata a tecla do jogador *numero* de acordo com o estado do jogo
 /// Enter começa ou reinicia a partida, durante a partida a tecla é tratada por trata_tecla_partida
 pub fn trata_tecla(estado: Estado, numero: Int, tecla: key.Event) -> Estado {
@@ -446,7 +445,7 @@ pub fn trata_tecla_examples() {
   check.eq(trata_tecla(Resultado(gerador, 1), 2, key.Char("1")), Resultado(gerador, 1))
 }
 
-/// devolve a direção da seta pressionada, se não for uma seta devolve None
+/// Determina a direção correspondente à seta pressionada. Para outras teclas, retorna None.
 pub fn direcao(tecla: key.Event) -> Option(Direcao) {
   case tecla {
     key.ArrowUp -> Some(Cima)
@@ -464,7 +463,7 @@ pub fn direcao_examples() {
   check.eq(direcao(key.Enter), None)
 }
 
-/// devolve o número da alternativa escolhida (1, 2 ou 3), para outras teclas devolve None
+/// Identifica a alternativa escolhida (1, 2 ou 3). Se a tecla não corresponde a uma alternativa, retorna None.
 pub fn alternativa(tecla: key.Event) -> Option(Int) {
   case tecla {
     key.Char("1") -> Some(1)
@@ -525,8 +524,7 @@ pub fn trata_tecla_partida_examples() {
   check.eq(trata_tecla_partida(gerador, partida_base, 3, key.ArrowRight), EmPartida(gerador, partida_base))
 }
 
-// Partida
-
+// PARTIDA
 /// sorteia o mapa e coloca cada jogador na sua casa inicial
 pub fn inicia_partida(gerador: Generator) -> Estado {
   let Sorteio(mapa, gerador) = sorteia(gerador, mapas(), ler_mapa(labirinto_1))
@@ -545,7 +543,7 @@ pub fn inicia_partida_examples() {
   )
 }
 
-/// procura o jogador pelo *numero*, se não encontrar devolve Error
+/// Procura o jogador de acordo com seu *numero*. Caso não encontre, retorna Error.
 pub fn acha_jogador(
   jogadores: List(Jogador),
   numero: Int,
@@ -558,7 +556,7 @@ pub fn acha_jogador_examples() {
   check.eq(acha_jogador(jogadores, 3), Error(Nil))
 }
 
-/// devolve a posição da próxima casa na direção *d*, a partir de *p*
+/// Calcula a próxima posição a partir de *p* e da direção *d*.
 pub fn destino(p: Posicao, d: Direcao) -> Posicao {
   case d {
     Cima -> Posicao(p.lin - 1, p.col)
@@ -611,7 +609,7 @@ pub fn move_examples() {
   ])
 }
 
-/// devolve True se o jogador *numero* está na casa da porta
+/// Verifica se o jogador *numero* está na posição da porta.
 pub fn na_porta(partida: Partida, numero: Int) -> Bool {
   list.any(partida.jogadores, fn(jogador) {
     jogador.numero == numero && jogador.posicao == partida.mapa.porta
@@ -712,10 +710,12 @@ pub fn troca_acao_examples() {
   check.eq(troca_acao(partida_teste(), 3, Bloqueado(30)), partida_teste())
 }
 
+// ----------------------------------------------------------------------------------------------
 // Enigmas
+// ----------------------------------------------------------------------------------------------
 
-/// calcula o resultado da expressão com os quatro números, de acordo com o *formato*
-/// respeita a ordem das operações
+/// Calcula o resultado da expressão de acordo com os quatro números e o *formato*.
+/// Considera a ordem das operações aritméticas.
 pub fn calcula(formato: Expressao, a: Int, b: Int, c: Int, d: Int) -> Int {
   case formato {
     FormatoA -> { a + b } * c - d
@@ -731,7 +731,7 @@ pub fn calcula_examples() {
   check.eq(calcula(FormatoD, 2, 3, 4, 5), -5)
 }
 
-/// monta o texto da expressão com os números *a*, *b*, *c* e *d*
+/// Converte a expressão formada por *a*, *b*, *c* e *d* em uma string.
 pub fn escreve(formato: Expressao, a: Int, b: Int, c: Int, d: Int) -> String {
   let para_texto = int.to_string
   case formato {
@@ -749,9 +749,9 @@ pub fn escreve_examples() {
   check.eq(escreve(FormatoD, 2, 3, 4, 5), "(2 + 3) × (4 - 5)")
 }
 
-/// monta o enigma e coloca as três alternativas em ordem crescente
-/// as duas erradas são feitas somando os valores de *erros* à resposta certa
-/// os erros devem ser diferentes entre si e estar entre -2 e 2, sem usar o zero
+/// Cria um enigma com três alternativas em ordem crescente.
+/// Calcula as alternativas incorretas somando os valores de *erros* ao resultado da expressão.
+/// Os valores de *erros* devem ser distintos, entre -2 e 2 e diferentes de zero.
 pub fn monta_enigma(
   formato: Expressao,
   a: Int,
@@ -772,8 +772,8 @@ pub fn monta_enigma_examples() {
   check.eq(monta_enigma(FormatoD, 2, 3, 4, 5, ParErros(-2, 1)), Enigma("(2 + 3) × (4 - 5)", [-7, -5, -4], 2))
 }
 
-/// sorteia o formato da expressão, os quatro números (de 2 a 9) e os valores dos erros
-/// os três pares de erros permitem que a resposta certa fique em qualquer uma das alternativas, com a mesma chance
+/// Sorteia o formato da expressão, quatro números entre 2 e 9 e um par de erros.
+/// Cada par permite que a resposta correta ocupe uma posição diferente, com a mesma chance.
 pub fn sorteia_enigma(gerador: Generator) -> Sorteio(Enigma) {
   let formatos = [FormatoA, FormatoB, FormatoC, FormatoD]
   let pares = [ParErros(-1, 1), ParErros(-2, -1), ParErros(1, 2)]
@@ -799,13 +799,13 @@ pub fn sorteia_enigma_examples() {
   check.eq(sorteia_enigma(gerador), Sorteio(Enigma("(2 + 3) × (4 - 5)", [-6, -5, -4], 2), random.mock([])))
 }
 
-/// enigma usado nos exemplos, a resposta certa é 24 (alternativa 2)
+/// Representa o enigma utilizado nos exemplos (resposta 24, alternativa 2).
 pub fn enigma_teste() -> Enigma {
   Enigma("(7 - 3) + 4 × 5", [23, 24, 25], 2)
 }
 
-/// verifica a alternativa escolhida pelo jogador *numero*
-/// se acertou vence a partida, se errou fica bloqueado
+/// Verifica se a alternativa escolhida pelo jogador *numero* está correta.
+/// Se estiver correta, o jogador vence a partida. Caso contrário, fica bloqueado.
 pub fn responde(
   gerador: Generator,
   partida: Partida,
@@ -830,10 +830,9 @@ pub fn responde_examples() {
   )
 }
 
-// Tiques
-
-/// atualiza a partida a cada tique do relógio, os outros estados não mudam
-/// cada jogador tem seu próprio contador de tempo
+// TIQUES 
+/// Atualiza o estado da partida a cada tique do relógio, sem alterar os outros estados.
+/// O tempo de cada jogador é contado separadamente.
 pub fn tique(estado: Estado) -> Estado {
   case estado {
     EmPartida(gerador, partida) -> EmPartida(gerador, avanca_partida(partida))
@@ -912,7 +911,7 @@ pub fn visivel_examples() {
   check.eq(visivel(Posicao(9, 7), Posicao(9, 9)), False)
 }
 
-/// Devolve a distância entre *a* e *b*, a maior diferença entre as linhas ou entre as colunas. As paredes são
+/// Retorna a distância entre *a* e *b*, a maior diferença entre as linhas ou entre as colunas. As paredes são
 /// ignoradas.
 pub fn distancia(a: Posicao, b: Posicao) -> Int {
   int.max(int.absolute_value(a.lin - b.lin), int.absolute_value(a.col - b.col))
@@ -924,7 +923,7 @@ pub fn distancia_examples() {
   check.eq(distancia(Posicao(1, 2), Posicao(6, 4)), 5)
 }
 
-/// Devolve True se algum adversário de *jogador_atual* está fora do campo de visão, mas a 2, 3 ou 4 casas de distância
+/// Retorna True se algum adversário de *jogador_atual* está fora do campo de visão, mas a 2, 3 ou 4 casas de distância
 pub fn adversario_perto(jogadores: List(Jogador), jogador_atual: Jogador) -> Bool {
   list.any(jogadores, fn(jogador) {
     let d = distancia(jogador.posicao, jogador_atual.posicao)
@@ -979,8 +978,7 @@ pub fn porta_visivel_examples() {
   check.eq(porta_visivel(Partida(..partida_base, jogadores: [longe, na_porta]), longe), True)
 }
 
-// Resultado
-
+// Resultado 
 /// Produz a mensagem de resultado para o jogador *numero*, quando o jogador *vencedor* venceu a partida.
 pub fn mensagem_resultado(vencedor: Int, numero: Int) -> String {
   case vencedor == numero {
