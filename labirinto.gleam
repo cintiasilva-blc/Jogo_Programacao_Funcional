@@ -1,34 +1,45 @@
-// Corrida no Labirinto Escuro
-//
-// Cíntia da Silva Bulcão - RA 145107.
-// Giovana da Silva Bulcão - RA 144325.
-//
-// Regras
-//
-// - Dois jogadores começam em casas diferentes (S e T) de um labirinto 20x20.
-//   No início de cada partida um dos cinco labirintos é sorteado.
-// - O labirinto é escuro: cada jogador vê apenas a sua casa e as 8 casas ao
-//   redor (quadrado 3x3). Não há memória das casas já visitadas.
-// - O adversário só aparece se estiver no seu quadrado 3x3. Se ele estiver
-//   fora do quadrado, mas a 2 a 4 casas de distância, aparece o aviso
-//   "Alguém está perto!".
-// - O objetivo é chegar à porta de saída (casa dourada) e resolver um enigma
-//   aritmético. Ao entrar na casa da porta, o jogador fica parado e recebe uma
-//   expressão com 3 alternativas. Ele tem 10 segundos para responder.
+
+// Cintia da Silva Bulcão    ra145107
+// Giovana da Silva Bulcão   ra144325
+
+
+// SOBRE O JOGO
+//  É um jogo competitivo multiplayer para dois jogadores
+
+//  Os dois jogadores começam em casas diferentes de um mesmo labirinto, e devem encontrar a saída. 
+//  Porém, o labirinto é escuro e cada jogador só enxerga um quadrado 3x3 (um quadrado de 8 casas) a partir da sua casa atual, 
+//  além disso, eles também não guardam a memória das casas que já visitaram.
+
+//  Aquele que chegar primeiro a saída E reslver o enigma (expressão aritmética) vence o jogo.
+
+// PONTOS IMPORTANTES SOBRE DECISÕES DE PROJETO:
+// - O labirinto é uma grade de 20x20, e no inicio de cada partida, um, entre os cinco labirintos elaborados,
+//   é sorteado. (É para todos serem dificeis e terem aproximadamente o mesmo nível de dificuldade)
+
+// - O jogador adversário pode ser visto se ele entrar no seu quadrado de visão, mas se ele estiver 
+//   fora do quadrado, entre 2 a 4 casas de distÂncia, aparece o aviso: "Alguém está perto!"
+
+// - Ao entrar na casa da porta de saída, o jogador fica parado e recebe uma
+//   expressão aritmética e 3 alternativas, no qual ele tem 10 segundos para escolher a alternativa correta.
+
 // - Enquanto um jogador resolve o enigma, a porta fica revelada na tela do
 //   adversário, com o aviso "Adversário na porta!", e o adversário continua
 //   andando normalmente.
-// - Resposta certa: o jogador vence a partida. Resposta errada ou tempo
-//   esgotado: o jogador fica bloqueado por 3 segundos. Depois disso ele precisa
+
+// - Resposta certa: o jogador vence a partida. 
+// - Resposta errada ou tempo esgotado: o jogador fica bloqueado por 3 segundos, e depois disso ele precisa
 //   sair da casa da porta e entrar de novo para receber um novo enigma.
-// - Os jogadores podem ocupar a mesma casa.
-//
-// Controles
-//
-// - Enter: começa a partida (abertura) ou joga novamente (resultado).
-// - Setas: movem o personagem uma casa.
+
+// - Os jogadores podem ocupar a mesma casa
+
+// CONTROLES:
+// - Enter: começa a partida ou joga novamente.
+// - Setas (Cima, Baixo, Esquerda, Direita): movem o personagem uma casa.
 // - 1, 2 ou 3: escolhem a alternativa do enigma.
-// - Qualquer outra tecla é ignorada.
+
+// ----------------------------------------------------------------------------------------------------------------
+// Imports, constantes, desenho dos labirintos e tipos de dados
+// ----------------------------------------------------------------------------------------------------------------
 
 import gleam/int
 import gleam/list
@@ -44,46 +55,32 @@ import sgleam/mworld
 import sgleam/random.{type Generator}
 import sgleam/style
 
-// Tipos auxiliares para sorteios e enigmas
-
-pub type Sorteio(a) {
-  Sorteio(valor: a, gerador: Generator)
-}
-
-pub type ParErros {
-  ParErros(primeiro: Int, segundo: Int)
-}
-
-pub type CasoSorteio {
-  CasoSorteio(erros: ParErros, alternativas: List(Int), correta: Int)
-}
-
-// Constantes
-
-/// Quantidade de casas em cada lado do labirinto.
+// CONSTANTES
+// Quantidade de casas em cada lado do labirinto
 const tamanho = 20
 
-/// Lado de uma casa, em pixels.
+// Cada casa é um quadrado com lado de 24px 
 const lado_casa = 24
 
-/// Quantidade de tiques por segundo.
+/// Quantidade de tiques por segundo
 const tiques_por_segundo = 10
 
-/// Tempo para responder o enigma, em tiques (10 s).
+/// Tempo para responder o enigma, em tiques (10 seg)
 const tempo_enigma = 100
 
-/// Tempo de bloqueio depois de um erro, em tiques (3 s).
+/// Tempo de bloqueio depois de um erro, em tiques (3 seg)
 const tempo_bloqueio = 30
 
-/// Largura da tela, em pixels.
+/// Largura da tela em px
 const largura = 480
 
-/// Altura da tela, em pixels.
+/// Altura da tela em px
 const altura = 590
 
-// Labirintos
-// # é parede, . é corredor, S e T são os inícios e P é a porta.
-// Os dois inícios têm a mesma distância mínima até a porta.
+// LABIRINTOS
+// - # é parede
+// - . é corredor
+// - S e T são os inícios e P é a porta 
 
 const labirinto_1 = [
   "..#.#..#.#.#.#.#.#..",
@@ -200,15 +197,14 @@ const labirinto_5 = [
   "T.S.......#...#.....",
 ]
 
-// Tipos de dados
-
-/// Uma casa do labirinto. *lin* e *col* vão de 0 a `tamanho - 1`; a casa Posicao(0, 0) fica no canto superior
-/// esquerdo.
+// TIPOS DE DADOS
+// Representa uma casa do labirinto
+// - *lin* e *col* vão de 0 a `tamanho - 1`
 pub type Posicao {
   Posicao(lin: Int, col: Int)
 }
 
-/// A direção de um movimento.
+// Representa a direção de um movimento
 pub type Direcao {
   Cima
   Baixo
@@ -216,12 +212,12 @@ pub type Direcao {
   Direita
 }
 
-/// Labirinto com as linhas, os inícios S e T e a porta P.
+/// Representa o mapa do labirinto com as linhas, os inícios S e T e a porta P
 pub type Mapa {
   Mapa(linhas: List(String), inicio: Posicao, inicio_2: Posicao, porta: Posicao)
 }
 
-/// O formato de uma expressão aritmética, com os números a, b, c e d.
+/// Representa o formato das expressões aritméticas
 pub type Expressao {
   FormatoA
   FormatoB
@@ -229,37 +225,57 @@ pub type Expressao {
   FormatoD
 }
 
-/// Um enigma. *expressao* é o texto da expressão, *alternativas* são as três opções em ordem crescente e
-/// *correta* é o número (1, 2 ou 3) da alternativa certa.
+/// Representa o enigma, em que:
+//  - *expressao* é o texto da expressão arit.
+//  - *alternativas* são as três opções 
+//  - *correta* é o número (1, 2 ou 3) da alternativa correta
 pub type Enigma {
   Enigma(expressao: String, alternativas: List(Int), correta: Int)
 }
 
-/// O que um jogador está fazendo na partida.
+/// Representa a ação de um jogador na partida.
 pub type Acao {
   Andando
   ResolvendoEnigma(enigma: Enigma, tiques_restantes: Int)
   Bloqueado(tiques_restantes: Int)
 }
 
-/// Um jogador. *numero* é 1 ou 2 e define a cor.
+/// Representa o jogador, em que:
+//  - *numero* pode ser 1 ou 2 (jogador 1 ou jogador 2)
 pub type Jogador {
   Jogador(numero: Int, posicao: Posicao, acao: Acao)
 }
 
-/// Uma partida em andamento.
+/// Representa uma partida em andamento
 pub type Partida {
   Partida(jogadores: List(Jogador), mapa: Mapa)
 }
 
-/// O estado do jogo. Todos os estados guardam o gerador de números aleatórios.
+/// Representa o estado do jogo. 
 pub type Estado {
   Abertura(gerador: Generator)
   EmPartida(gerador: Generator, partida: Partida)
   Resultado(gerador: Generator, vencedor: Int)
 }
 
-// Mundo
+// A seguir são alguns tipos auxiliares para os sorteios e enigmas
+
+pub type Sorteio(a) {
+  Sorteio(valor: a, gerador: Generator)
+}
+
+pub type ParErros {
+  ParErros(primeiro: Int, segundo: Int)
+}
+
+pub type CasoSorteio {
+  CasoSorteio(erros: ParErros, alternativas: List(Int), correta: Int)
+}
+
+
+// -------------------------------------------------------------------------------------------------------------
+// Mworld
+// -------------------------------------------------------------------------------------------------------------
 
 pub fn smain() {
   mworld.create_from(inicio, min: 2, max: 2, to_image: desenha)
