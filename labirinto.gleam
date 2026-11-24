@@ -329,6 +329,7 @@ pub fn sorteia(gerador: Generator, lista: List(a), padrao: a) -> Sorteio(a) {
 pub fn sorteia_examples() {
   let gerador_teste = random.mock([random.pick_returns([1, 2, 3], Ok(2))])
   check.eq(sorteia(gerador_teste, [1, 2, 3], 0), Sorteio(2, random.mock([])))
+  
   let gerador_teste = random.mock([random.pick_returns([], Error(Nil))])
   check.eq(sorteia(gerador_teste, [], 7), Sorteio(7, random.mock([])))
 }
