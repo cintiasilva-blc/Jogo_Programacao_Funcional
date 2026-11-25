@@ -35,9 +35,7 @@
 // - Setas (Cima, Baixo, Esquerda, Direita): movem o personagem uma casa.
 // - 1, 2 ou 3: escolhem a alternativa do enigma.
 
-// -------------------------------------------------------------------------------------------------
 // Imports, constantes, desenho dos labirintos e tipos de dados
-// -------------------------------------------------------------------------------------------------
 
 import gleam/int
 import gleam/list
@@ -256,19 +254,12 @@ pub type Estado {
   Resultado(gerador: Generator, vencedor: Int)
 }
 
-// A seguir são alguns tipos auxiliares para os sorteios e enigmas
-
-pub type Sorteio(a) {
-  Sorteio(valor: a, gerador: Generator)
-}
-
+// Desvios usados para montar as alternativas incorretas.
 pub type ParErros {
   ParErros(primeiro: Int, segundo: Int)
 }
 
-// ------------------------------------------------------------------------------------------------
 // Mworld
-// ------------------------------------------------------------------------------------------------
 
 pub fn smain() {
   mworld.create_from(inicio, min: 2, max: 2, to_image: desenha)
@@ -292,7 +283,6 @@ fn tecla(estado: Estado, jogador: mworld.Player, evento: key.Event) -> Estado {
   trata_tecla(estado, mworld.player_index(jogador), evento)
 }
 
-
 /// Recebe *inicio* e *fim* e retorna uma lista com os números desse intervalo, incluindo os extremos.
 /// Se *inicio* for maior que *fim*, retorna uma lista vazia.
 pub fn sequencia(inicio: Int, fim: Int) -> List(Int) {
@@ -302,6 +292,7 @@ pub fn sequencia(inicio: Int, fim: Int) -> List(Int) {
   }
 }
 pub fn sequencia_examples() {
+  // Casos em que o início é maior ou igual ao fim
   check.eq(sequencia(3, 2), [])
   check.eq(sequencia(3, 3), [3])
   check.eq(sequencia(2, 5), [2, 3, 4, 5])
@@ -309,30 +300,34 @@ pub fn sequencia_examples() {
 
 /// Gera uma lista com todas as posições do labirinto, percorrendo as linhas em ordem.
 pub fn todas_as_casas() -> List(Posicao) {
-  let linhas =
-    list.map(sequencia(0, tamanho - 1), fn(lin) {
-      list.map(sequencia(0, tamanho - 1), fn(col) { Posicao(lin, col) })
-    })
-  list.fold(linhas, [], list.append)
+  sequencia(0, tamanho - 1)
+  |> list.map(fn(lin) {
+    list.map(sequencia(0, tamanho - 1), fn(col) { Posicao(lin, col) })
+  })
+  |> list.fold([], list.append)
 }
 pub fn todas_as_casas_examples() {
   check.eq(list.length(todas_as_casas()), 400)
   check.eq(list.first(todas_as_casas()), Ok(Posicao(0, 0)))
+  // A segunda linha começa depois das 20 casas da primeira
+  check.eq(todas_as_casas() |> list.drop(20) |> list.first, Ok(Posicao(1, 0)))
+  check.eq(todas_as_casas() |> list.drop(399) |> list.first, Ok(Posicao(19, 19)))
 }
 
 /// Recebe uma *lista* e sorteia um de seus elementos, retornando também o gerador atualizado.
 /// Se a lista estiver vazia, retorna *padrao* no lugar do elemento.
-pub fn sorteia(gerador: Generator, lista: List(a), padrao: a) -> Sorteio(a) {
+pub fn sorteia(gerador: Generator, lista: List(a), padrao: a) -> #(a, Generator) {
   case random.pick(gerador, lista) {
-    #(Ok(x), gerador) -> Sorteio(x, gerador)
-    #(Error(_), gerador) -> Sorteio(padrao, gerador)
+    #(Ok(x), gerador) -> #(x, gerador)
+    #(Error(_), gerador) -> #(padrao, gerador)
   }
 }
 pub fn sorteia_examples() {
   let gerador_teste = random.mock([random.pick_returns([1, 2, 3], Ok(2))])
-  check.eq(sorteia(gerador_teste, [1, 2, 3], 0), Sorteio(2, random.mock([])))
+  check.eq(sorteia(gerador_teste, [1, 2, 3], 0), #(2, random.mock([])))
   let gerador_teste = random.mock([random.pick_returns([], Error(Nil))])
-  check.eq(sorteia(gerador_teste, [], 7), Sorteio(7, random.mock([])))
+  // Lista vazia -> usa o valor padrão
+  check.eq(sorteia(gerador_teste, [], 7), #(7, random.mock([])))
 }
 
 // MAPAS
@@ -340,12 +335,12 @@ pub fn sorteia_examples() {
 pub fn simbolo_em(linhas: List(String), p: Posicao) -> String {
   case p.lin < 0 || p.lin >= tamanho || p.col < 0 || p.col >= tamanho {
     True -> "#"
-    False -> {
-      let restantes = list.drop(linhas, p.lin)
-      case list.first(restantes) {
-        Ok(linha) -> string.slice(linha, p.col, 1)
-        Error(_) -> "#"
+    False -> case linhas |> list.drop(p.lin) |> list.first {
+      Ok(linha) -> case string.slice(linha, p.col, 1) {
+        "" -> "#"
+        simbolo -> simbolo
       }
+      Error(_) -> "#"
     }
   }
 }
@@ -369,14 +364,16 @@ pub fn mapa_teste() -> Mapa {
   ler_mapa(["#####", "#S.P#", "#T#.#", "#####"])
 }
 pub fn ler_mapa_examples() {
-  check.eq(
-    mapa_teste(),
-    Mapa(["#####", "#S.P#", "#T#.#", "#####"], Posicao(1, 1), Posicao(2, 1), Posicao(1, 3)),
-  )
+  // Posições de início dos jogadores e da porta
+  check.eq(mapa_teste(), Mapa(["#####", "#S.P#", "#T#.#", "#####"], Posicao(1, 1), Posicao(2, 1), Posicao(1, 3)))
+  // Casas dentro do mapa
   check.eq(simbolo_em(mapa_teste().linhas, Posicao(1, 2)), ".")
   check.eq(simbolo_em(mapa_teste().linhas, Posicao(0, 0)), "#")
+  // Posições fora do mapa, inclusive fora do mapa menor usado nos exemplos
   check.eq(simbolo_em(mapa_teste().linhas, Posicao(-1, 0)), "#")
   check.eq(simbolo_em(mapa_teste().linhas, Posicao(0, 20)), "#")
+  check.eq(simbolo_em(mapa_teste().linhas, Posicao(0, 5)), "#")
+  check.eq(simbolo_em(mapa_teste().linhas, Posicao(4, 0)), "#")
 }
 
 /// Retorna uma lista com os cinco mapas do jogo.
@@ -385,6 +382,7 @@ pub fn mapas() -> List(Mapa) {
 }
 pub fn mapas_examples() {
   check.eq(list.length(mapas()), 5)
+  // Todos os mapas têm 20 linhas e 20 colunas
   check.eq(
     list.all(mapas(), fn(mapa) {
       list.length(mapa.linhas) == 20
@@ -392,6 +390,7 @@ pub fn mapas_examples() {
     }),
     True,
   )
+  // Os jogadores começam em casas diferentes e os símbolos estão nas posições esperadas
   check.eq(
     list.all(mapas(), fn(mapa) {
       mapa.inicio != mapa.inicio_2
@@ -410,10 +409,12 @@ pub fn caminho_livre(mapa: Mapa, p: Posicao) -> Bool {
 }
 pub fn caminho_livre_examples() {
   let mapa = mapa_teste()
+  // Casas livres (inícios, corredor e porta)
   check.eq(caminho_livre(mapa, Posicao(1, 1)), True)
   check.eq(caminho_livre(mapa, Posicao(2, 1)), True)
   check.eq(caminho_livre(mapa, Posicao(1, 2)), True)
   check.eq(caminho_livre(mapa, Posicao(1, 3)), True)
+  // Casas que não permitem andar (parede ou fora do mapa)
   check.eq(caminho_livre(mapa, Posicao(0, 0)), False)
   check.eq(caminho_livre(mapa, Posicao(-1, 1)), False)
   check.eq(caminho_livre(mapa, Posicao(1, 20)), False)
@@ -425,8 +426,7 @@ pub fn caminho_livre_examples() {
 pub fn trata_tecla(estado: Estado, numero: Int, tecla: key.Event) -> Estado {
   case estado, tecla {
     Abertura(gerador), key.Enter -> inicia_partida(gerador)
-    EmPartida(gerador, partida), _ ->
-      trata_tecla_partida(gerador, partida, numero, tecla)
+    EmPartida(gerador, partida), _ -> trata_tecla_partida(gerador, partida, numero, tecla)
     Resultado(gerador, _), key.Enter -> inicia_partida(gerador)
     _, _ -> estado
   }
@@ -434,13 +434,14 @@ pub fn trata_tecla(estado: Estado, numero: Int, tecla: key.Event) -> Estado {
 pub fn trata_tecla_examples() {
   let gerador = random.new(0)
   let partida_base = partida_teste()
+  // Teclas na abertura
   check.eq(trata_tecla(Abertura(gerador), 1, key.Enter), inicia_partida(gerador))
   check.eq(trata_tecla(Abertura(gerador), 2, key.ArrowUp), Abertura(gerador))
-  check.eq(
-    trata_tecla(EmPartida(gerador, partida_base), 1, key.ArrowRight),
-    EmPartida(gerador, move(partida_base, 1, Direita)),
-  )
+  // Teclas durante a partida
+  let esperado = Partida([Jogador(1, Posicao(1, 2), Andando), Jogador(2, Posicao(1, 1), Andando)], mapa_teste())
+  check.eq(trata_tecla(EmPartida(gerador, partida_base), 1, key.ArrowRight), EmPartida(gerador, esperado))
   check.eq(trata_tecla(EmPartida(gerador, partida_base), 2, key.Enter), EmPartida(gerador, partida_base))
+  // Teclas na tela de resultado
   check.eq(trata_tecla(Resultado(gerador, 1), 2, key.Enter), inicia_partida(gerador))
   check.eq(trata_tecla(Resultado(gerador, 1), 2, key.Char("1")), Resultado(gerador, 1))
 }
@@ -460,6 +461,7 @@ pub fn direcao_examples() {
   check.eq(direcao(key.ArrowDown), Some(Baixo))
   check.eq(direcao(key.ArrowLeft), Some(Esquerda))
   check.eq(direcao(key.ArrowRight), Some(Direita))
+  // Enter não indica uma direção
   check.eq(direcao(key.Enter), None)
 }
 
@@ -474,18 +476,14 @@ pub fn alternativa(tecla: key.Event) -> Option(Int) {
 }
 pub fn alternativa_examples() {
   check.eq(alternativa(key.Char("1")), Some(1))
+  check.eq(alternativa(key.Char("2")), Some(2))
   check.eq(alternativa(key.Char("3")), Some(3))
   check.eq(alternativa(key.Char("4")), None)
 }
 
 /// trata a tecla de acordo com o que o jogador está fazendo na partida
 /// se estiver andando usa as setas, se estiver no enigma usa 1, 2 ou 3 e se estiver bloqueado ignora a tecla
-pub fn trata_tecla_partida(
-  gerador: Generator,
-  partida: Partida,
-  numero: Int,
-  tecla: key.Event,
-) -> Estado {
+pub fn trata_tecla_partida(gerador: Generator, partida: Partida, numero: Int, tecla: key.Event) -> Estado {
   case acha_jogador(partida.jogadores, numero) {
     Error(_) -> EmPartida(gerador, partida)
     Ok(jogador) ->
@@ -510,16 +508,13 @@ pub fn trata_tecla_partida_examples() {
   let partida_base = partida_teste()
   let resolvendo = troca_acao(partida_base, 1, ResolvendoEnigma(enigma, 50))
   let bloqueado = troca_acao(partida_base, 1, Bloqueado(30))
-  check.eq(
-    trata_tecla_partida(gerador, partida_base, 1, key.ArrowRight),
-    EmPartida(gerador, move(partida_base, 1, Direita)),
-  )
+  // Jogador andando
+  check.eq(trata_tecla_partida(gerador, partida_base, 1, key.ArrowRight), EmPartida(gerador, move(partida_base, 1, Direita)))
   check.eq(trata_tecla_partida(gerador, partida_base, 1, key.Char("1")), EmPartida(gerador, partida_base))
+  // Jogador resolvendo o enigma
   check.eq(trata_tecla_partida(gerador, resolvendo, 1, key.ArrowRight), EmPartida(gerador, resolvendo))
-  check.eq(
-    trata_tecla_partida(gerador, resolvendo, 1, key.Char("2")),
-    responde(gerador, resolvendo, 1, enigma, 2),
-  )
+  check.eq(trata_tecla_partida(gerador, resolvendo, 1, key.Char("2")), Resultado(gerador, 1))
+  // Jogador bloqueado ou inexistente
   check.eq(trata_tecla_partida(gerador, bloqueado, 1, key.ArrowRight), EmPartida(gerador, bloqueado))
   check.eq(trata_tecla_partida(gerador, partida_base, 3, key.ArrowRight), EmPartida(gerador, partida_base))
 }
@@ -527,13 +522,14 @@ pub fn trata_tecla_partida_examples() {
 // PARTIDA
 /// sorteia o mapa e coloca cada jogador na sua casa inicial
 pub fn inicia_partida(gerador: Generator) -> Estado {
-  let Sorteio(mapa, gerador) = sorteia(gerador, mapas(), ler_mapa(labirinto_1))
+  let #(mapa, gerador) = sorteia(gerador, mapas(), ler_mapa(labirinto_1))
   let jogadores = [Jogador(1, mapa.inicio, Andando), Jogador(2, mapa.inicio_2, Andando)]
   EmPartida(gerador, Partida(jogadores, mapa))
 }
 pub fn inicia_partida_examples() {
   let mapa = ler_mapa(labirinto_1)
   let gerador_teste = random.mock([random.pick_returns(mapas(), Ok(mapa))])
+  // Início da partida com o mapa sorteado e os jogadores em casas diferentes
   check.eq(
     inicia_partida(gerador_teste),
     EmPartida(
@@ -544,10 +540,7 @@ pub fn inicia_partida_examples() {
 }
 
 /// Procura o jogador de acordo com seu *numero*. Caso não encontre, retorna Error.
-pub fn acha_jogador(
-  jogadores: List(Jogador),
-  numero: Int,
-) -> Result(Jogador, Nil) {
+pub fn acha_jogador(jogadores: List(Jogador), numero: Int) -> Result(Jogador, Nil) {
   list.find(jogadores, fn(jogador) { jogador.numero == numero })
 }
 pub fn acha_jogador_examples() {
@@ -575,35 +568,34 @@ pub fn destino_examples() {
 /// move o jogador *numero* uma casa na direção *d*, se ele estiver andando e a casa for livre
 /// os dois jogadores podem ficar na mesma casa
 pub fn move(partida: Partida, numero: Int, d: Direcao) -> Partida {
-  Partida(
-    ..partida,
-    jogadores: list.map(partida.jogadores, fn(jogador) {
-      let nova = destino(jogador.posicao, d)
-      case
-        jogador.numero == numero
-        && jogador.acao == Andando
-        && caminho_livre(partida.mapa, nova)
-      {
-        True -> Jogador(..jogador, posicao: nova)
-        False -> jogador
-      }
-    }),
-  )
+  atualiza_jogador(partida, numero, fn(jogador) {
+    let nova = destino(jogador.posicao, d)
+    case jogador.acao == Andando && caminho_livre(partida.mapa, nova) {
+      True -> Jogador(..jogador, posicao: nova)
+      False -> jogador
+    }
+  })
 }
 pub fn move_examples() {
   let partida_base = partida_teste()
   let j1 = Jogador(1, Posicao(1, 1), Andando)
   let j2 = Jogador(2, Posicao(1, 1), Andando)
+  // Movimentação dos dois jogadores
   check.eq(move(partida_base, 1, Direita), Partida(..partida_base, jogadores: [Jogador(1, Posicao(1, 2), Andando), j2]))
   check.eq(move(partida_base, 2, Baixo), Partida(..partida_base, jogadores: [j1, Jogador(2, Posicao(2, 1), Andando)]))
+  // Tentativas de andar contra a parede ou sair do mapa
   check.eq(move(partida_base, 1, Cima), partida_base)
+  check.eq(move(partida_base, 3, Direita), partida_base)
   let canto = Partida(..partida_base, jogadores: [Jogador(1, Posicao(0, 0), Andando)])
   check.eq(move(canto, 1, Esquerda), canto)
   let bloqueado = troca_acao(partida_base, 1, Bloqueado(5))
+  // Jogador bloqueado ou resolvendo não pode andar
   check.eq(move(bloqueado, 1, Direita), bloqueado)
   let resolvendo = troca_acao(partida_base, 1, ResolvendoEnigma(enigma_teste(), 5))
   check.eq(move(resolvendo, 1, Direita), resolvendo)
-  check.eq(move(move(partida_base, 1, Direita), 2, Direita).jogadores, [
+  // Os dois podem ocupar a mesma casa
+  let juntos = partida_base |> move(1, Direita) |> move(2, Direita)
+  check.eq(juntos.jogadores, [
     Jogador(1, Posicao(1, 2), Andando),
     Jogador(2, Posicao(1, 2), Andando),
   ])
@@ -616,8 +608,7 @@ pub fn na_porta(partida: Partida, numero: Int) -> Bool {
   })
 }
 pub fn na_porta_examples() {
-  let partida_base =
-    Partida(..partida_teste(), jogadores: [
+  let partida_base = Partida(..partida_teste(), jogadores: [
       Jogador(1, Posicao(1, 3), Andando),
       Jogador(2, Posicao(1, 1), Andando),
     ])
@@ -628,91 +619,87 @@ pub fn na_porta_examples() {
 
 /// move o jogador e sorteia um enigma se ele acabou de entrar na casa da porta
 /// para receber outro enigma, ele precisa sair da porta e entrar de novo
-pub fn anda(
-  gerador: Generator,
-  partida: Partida,
-  numero: Int,
-  d: Direcao,
-) -> Estado {
+pub fn anda(gerador: Generator, partida: Partida, numero: Int, d: Direcao) -> Estado {
   let nova = move(partida, numero, d)
   case na_porta(nova, numero) && !na_porta(partida, numero) {
     True -> {
-      let Sorteio(enigma, gerador) = sorteia_enigma(gerador)
+      let #(enigma, gerador) = sorteia_enigma(gerador)
       EmPartida(gerador, troca_acao(nova, numero, ResolvendoEnigma(enigma, tempo_enigma)))
     }
     False -> EmPartida(gerador, nova)
   }
 }
 pub fn anda_examples() {
-  let gerador = random.mock([])
   let partida_base = partida_teste()
   let vizinha = move(partida_base, 1, Direita)
-  check.eq(anda(gerador, partida_base, 1, Direita), EmPartida(gerador, vizinha))
-
+  let porta = move(vizinha, 1, Direita)
+  let vazio = random.mock([])
+  // Anda pelo corredor sem sortear um enigma
+  check.eq(anda(vazio, partida_base, 1, Direita), EmPartida(vazio, vizinha))
   let numeros = sequencia(2, 9)
+  let pares = [ParErros(-1, 1), ParErros(-2, -1), ParErros(1, 2)]
   let sorteios = [
     random.pick_returns([FormatoA, FormatoB, FormatoC, FormatoD], Ok(FormatoB)),
-    random.pick_returns(numeros, Ok(7)),
-    random.pick_returns(numeros, Ok(3)),
-    random.pick_returns(numeros, Ok(4)),
-    random.pick_returns(numeros, Ok(5)),
+    random.pick_returns(numeros, Ok(7)), random.pick_returns(numeros, Ok(3)),
+    random.pick_returns(numeros, Ok(4)), random.pick_returns(numeros, Ok(5)),
   ]
-  let primeiro =
-    list.append(sorteios, [
-      random.pick_returns([ParErros(-1, 1), ParErros(-2, -1), ParErros(1, 2)], Ok(ParErros(-1, 1))),
-    ])
-  let segundo =
-    list.append(sorteios, [
-      random.pick_returns([ParErros(-1, 1), ParErros(-2, -1), ParErros(1, 2)], Ok(ParErros(1, 2))),
-    ])
+  let primeiro = list.append(sorteios, [random.pick_returns(pares, Ok(ParErros(-1, 1)))])
+  let segundo = list.append(sorteios, [random.pick_returns(pares, Ok(ParErros(1, 2)))])
   let gerador = random.mock(list.append(primeiro, segundo))
   let restante = random.mock(segundo)
-  let outro = Jogador(2, Posicao(1, 1), Andando)
-  let na_porta = Partida(..partida_base, jogadores: [Jogador(1, Posicao(1, 3), Andando), outro])
   let entrada = anda(gerador, vizinha, 1, Direita)
-  check.eq(entrada, EmPartida(restante, troca_acao(na_porta, 1, ResolvendoEnigma(enigma_teste(), 100))))
-
+  // Chegou na porta -> sorteia o primeiro enigma
+  check.eq(entrada, EmPartida(restante, troca_acao(porta, 1, ResolvendoEnigma(enigma_teste(), 100))))
   let assert EmPartida(gerador, partida) = entrada
   let liberado = tique(EmPartida(gerador, troca_acao(partida, 1, Bloqueado(1))))
-  check.eq(liberado, EmPartida(restante, na_porta))
+  // Acabou o bloqueio
+  check.eq(liberado, EmPartida(restante, porta))
   let assert EmPartida(gerador, partida) = liberado
-  let parado = anda(gerador, partida, 1, Direita)
-  check.eq(parado, EmPartida(restante, na_porta))
-
-  let assert EmPartida(gerador, partida) = parado
+  // Continua na porta ao tentar andar contra a parede
+  check.eq(anda(gerador, partida, 1, Direita), liberado)
   let saida = anda(gerador, partida, 1, Esquerda)
   check.eq(saida, EmPartida(restante, vizinha))
   let assert EmPartida(gerador, partida) = saida
   let novo = Enigma("(7 - 3) + 4 × 5", [24, 25, 26], 1)
-  check.eq(
-    anda(gerador, partida, 1, Direita),
-    EmPartida(random.mock([]), troca_acao(na_porta, 1, ResolvendoEnigma(novo, 100))),
-  )
+  // Volta para a porta e recebe outro enigma
+  check.eq(anda(gerador, partida, 1, Direita), EmPartida(vazio, troca_acao(porta, 1, ResolvendoEnigma(novo, 100))))
+}
+
+/// Aplica *altera* apenas ao jogador de número *numero*.
+fn atualiza_jogador(partida: Partida, numero: Int, altera: fn(Jogador) -> Jogador) -> Partida {
+  let jogadores = list.map(partida.jogadores, fn(jogador) {
+    case jogador.numero == numero {
+      True -> altera(jogador)
+      False -> jogador
+    }
+  })
+  Partida(..partida, jogadores: jogadores)
+}
+
+pub fn atualiza_jogador_examples() {
+  let partida = partida_teste()
+  let altera = fn(jogador) { Jogador(..jogador, posicao: Posicao(1, 2)) }
+  check.eq(atualiza_jogador(partida, 1, altera).jogadores, [
+    Jogador(1, Posicao(1, 2), Andando), Jogador(2, Posicao(1, 1), Andando),
+  ])
+  check.eq(atualiza_jogador(partida, 3, altera), partida)
 }
 
 /// muda a ação do jogador *numero* para *acao*
 pub fn troca_acao(partida: Partida, numero: Int, acao: Acao) -> Partida {
-  Partida(
-    ..partida,
-    jogadores: list.map(partida.jogadores, fn(jogador) {
-      case jogador.numero == numero {
-        True -> Jogador(..jogador, acao: acao)
-        False -> jogador
-      }
-    }),
-  )
+  atualiza_jogador(partida, numero, fn(jogador) { Jogador(..jogador, acao: acao) })
 }
 pub fn troca_acao_examples() {
+  // Apenas o jogador 2 fica bloqueado
   check.eq(troca_acao(partida_teste(), 2, Bloqueado(30)).jogadores, [
     Jogador(1, Posicao(1, 1), Andando),
     Jogador(2, Posicao(1, 1), Bloqueado(30)),
   ])
+  // Jogador inexistente -> partida permanece igual
   check.eq(troca_acao(partida_teste(), 3, Bloqueado(30)), partida_teste())
 }
 
-// ----------------------------------------------------------------------------------------------
 // Enigmas
-// ----------------------------------------------------------------------------------------------
 
 /// Calcula o resultado da expressão de acordo com os quatro números e o *formato*.
 /// Considera a ordem das operações aritméticas.
@@ -752,38 +739,35 @@ pub fn escreve_examples() {
 /// Cria um enigma com três alternativas em ordem crescente.
 /// Calcula as alternativas incorretas somando os valores de *erros* ao resultado da expressão.
 /// Os valores de *erros* devem ser distintos, entre -2 e 2 e diferentes de zero.
-pub fn monta_enigma(
-  formato: Expressao,
-  a: Int,
-  b: Int,
-  c: Int,
-  d: Int,
-  erros: ParErros,
-) -> Enigma {
+pub fn monta_enigma(formato: Expressao, a: Int, b: Int, c: Int, d: Int, erros: ParErros) -> Enigma {
   let certa = calcula(formato, a, b, c, d)
   let alternativas = list.sort([certa, certa + erros.primeiro, certa + erros.segundo], int.compare)
-  let correta = list.length(list.filter(alternativas, fn(x) { x < certa })) + 1
+  let menores = alternativas |> list.filter(fn(x) { x < certa }) |> list.length
+  let correta = menores + 1
   Enigma(escreve(formato, a, b, c, d), alternativas, correta)
 }
 pub fn monta_enigma_examples() {
+  // Resposta certa em posições diferentes
   check.eq(monta_enigma(FormatoB, 7, 3, 4, 5, ParErros(-1, 1)), Enigma("(7 - 3) + 4 × 5", [23, 24, 25], 2))
   check.eq(monta_enigma(FormatoB, 7, 3, 4, 5, ParErros(-2, -1)), Enigma("(7 - 3) + 4 × 5", [22, 23, 24], 3))
   check.eq(monta_enigma(FormatoB, 7, 3, 4, 5, ParErros(1, 2)), Enigma("(7 - 3) + 4 × 5", [24, 25, 26], 1))
+  // Enigma com resposta negativa
   check.eq(monta_enigma(FormatoD, 2, 3, 4, 5, ParErros(-2, 1)), Enigma("(2 + 3) × (4 - 5)", [-7, -5, -4], 2))
 }
 
 /// Sorteia o formato da expressão, quatro números entre 2 e 9 e um par de erros.
 /// Cada par permite que a resposta correta ocupe uma posição diferente, com a mesma chance.
-pub fn sorteia_enigma(gerador: Generator) -> Sorteio(Enigma) {
+pub fn sorteia_enigma(gerador: Generator) -> #(Enigma, Generator) {
   let formatos = [FormatoA, FormatoB, FormatoC, FormatoD]
   let pares = [ParErros(-1, 1), ParErros(-2, -1), ParErros(1, 2)]
-  let Sorteio(formato, gerador) = sorteia(gerador, formatos, FormatoA)
-  let Sorteio(a, gerador) = sorteia(gerador, sequencia(2, 9), 2)
-  let Sorteio(b, gerador) = sorteia(gerador, sequencia(2, 9), 2)
-  let Sorteio(c, gerador) = sorteia(gerador, sequencia(2, 9), 2)
-  let Sorteio(d, gerador) = sorteia(gerador, sequencia(2, 9), 2)
-  let Sorteio(erros, gerador) = sorteia(gerador, pares, ParErros(-1, 1))
-  Sorteio(monta_enigma(formato, a, b, c, d, erros), gerador)
+  let numeros = sequencia(2, 9)
+  let #(formato, gerador) = sorteia(gerador, formatos, FormatoA)
+  let #(a, gerador) = sorteia(gerador, numeros, 2)
+  let #(b, gerador) = sorteia(gerador, numeros, 2)
+  let #(c, gerador) = sorteia(gerador, numeros, 2)
+  let #(d, gerador) = sorteia(gerador, numeros, 2)
+  let #(erros, gerador) = sorteia(gerador, pares, ParErros(-1, 1))
+  #(monta_enigma(formato, a, b, c, d, erros), gerador)
 }
 pub fn sorteia_enigma_examples() {
   let numeros = sequencia(2, 9)
@@ -796,7 +780,8 @@ pub fn sorteia_enigma_examples() {
     random.pick_returns(numeros, Ok(5)),
     random.pick_returns(pares, Ok(ParErros(-1, 1))),
   ])
-  check.eq(sorteia_enigma(gerador), Sorteio(Enigma("(2 + 3) × (4 - 5)", [-6, -5, -4], 2), random.mock([])))
+  // Enigma sorteado e gerador sem sorteios restantes
+  check.eq(sorteia_enigma(gerador), #(Enigma("(2 + 3) × (4 - 5)", [-6, -5, -4], 2), random.mock([])))
 }
 
 /// Representa o enigma utilizado nos exemplos (resposta 24, alternativa 2).
@@ -806,28 +791,20 @@ pub fn enigma_teste() -> Enigma {
 
 /// Verifica se a alternativa escolhida pelo jogador *numero* está correta.
 /// Se estiver correta, o jogador vence a partida. Caso contrário, fica bloqueado.
-pub fn responde(
-  gerador: Generator,
-  partida: Partida,
-  numero: Int,
-  enigma: Enigma,
-  escolha: Int,
-) -> Estado {
+pub fn responde(gerador: Generator, partida: Partida, numero: Int, enigma: Enigma, escolha: Int) -> Estado {
   case escolha == enigma.correta {
     True -> Resultado(gerador, numero)
-    False ->
-      EmPartida(gerador, troca_acao(partida, numero, Bloqueado(tempo_bloqueio)))
+    False -> EmPartida(gerador, troca_acao(partida, numero, Bloqueado(tempo_bloqueio)))
   }
 }
 pub fn responde_examples() {
   let gerador = random.new(0)
   let enigma = enigma_teste()
   let partida_base = troca_acao(partida_teste(), 2, ResolvendoEnigma(enigma, 50))
+  // Acertou o enigma -> venceu
   check.eq(responde(gerador, partida_base, 2, enigma, 2), Resultado(gerador, 2))
-  check.eq(
-    responde(gerador, partida_base, 2, enigma, 3),
-    EmPartida(gerador, troca_acao(partida_base, 2, Bloqueado(30))),
-  )
+  // Errou -> fica bloqueado por 3 segundos
+  check.eq(responde(gerador, partida_base, 2, enigma, 3), EmPartida(gerador, troca_acao(partida_base, 2, Bloqueado(30))))
 }
 
 // TIQUES 
@@ -844,8 +821,10 @@ pub fn tique_examples() {
   let partida_base = partida_teste()
     |> troca_acao(1, ResolvendoEnigma(enigma_teste(), 50))
     |> troca_acao(2, Bloqueado(30))
+  // Relógio na abertura e no resultado não altera o estado
   check.eq(tique(Abertura(gerador)), Abertura(gerador))
   check.eq(tique(Resultado(gerador, 1)), Resultado(gerador, 1))
+  // Diminui o tempo dos dois jogadores
   check.eq(
     tique(EmPartida(gerador, partida_base)),
     EmPartida(
@@ -872,43 +851,43 @@ pub fn avanca_partida_examples() {
 /// Avança em um tique o contador do *jogador*. Quando o tempo do enigma acaba, o jogador é bloqueado. Quando o
 /// bloqueio acaba, o jogador volta a andar.
 pub fn tique_jogador(jogador: Jogador) -> Jogador {
-  case jogador.acao {
-    Andando -> jogador
-    ResolvendoEnigma(enigma, tiques) ->
-      case tiques <= 1 {
-        True -> Jogador(..jogador, acao: Bloqueado(tempo_bloqueio))
-        False -> Jogador(..jogador, acao: ResolvendoEnigma(enigma, tiques - 1))
-      }
-    Bloqueado(tiques) ->
-      case tiques <= 1 {
-        True -> Jogador(..jogador, acao: Andando)
-        False -> Jogador(..jogador, acao: Bloqueado(tiques - 1))
-      }
+  let acao = case jogador.acao {
+    Andando -> Andando
+    ResolvendoEnigma(enigma, tiques) -> case tiques <= 1 {
+      True -> Bloqueado(tempo_bloqueio)
+      False -> ResolvendoEnigma(enigma, tiques - 1)
+    }
+    Bloqueado(tiques) -> case tiques <= 1 {
+      True -> Andando
+      False -> Bloqueado(tiques - 1)
+    }
   }
+  Jogador(..jogador, acao: acao)
 }
 pub fn tique_jogador_examples() {
   let posicao = Posicao(1, 1)
   let enigma = enigma_teste()
   check.eq(tique_jogador(Jogador(1, posicao, Andando)), Jogador(1, posicao, Andando))
-  check.eq(
-    tique_jogador(Jogador(1, posicao, ResolvendoEnigma(enigma, 100))),
-    Jogador(1, posicao, ResolvendoEnigma(enigma, 99)),
-  )
+  // Tempo do enigma (quando acaba, o jogador fica bloqueado)
+  check.eq(tique_jogador(Jogador(1, posicao, ResolvendoEnigma(enigma, 100))), Jogador(1, posicao, ResolvendoEnigma(enigma, 99)))
   check.eq(tique_jogador(Jogador(1, posicao, ResolvendoEnigma(enigma, 1))), Jogador(1, posicao, Bloqueado(30)))
+  // Tempo de bloqueio (quando acaba, volta a andar)
   check.eq(tique_jogador(Jogador(1, posicao, Bloqueado(30))), Jogador(1, posicao, Bloqueado(29)))
   check.eq(tique_jogador(Jogador(1, posicao, Bloqueado(1))), Jogador(1, posicao, Andando))
 }
 
 /// Uma posição está no campo de visão quando difere no máximo uma casa em cada eixo
 pub fn visivel(p: Posicao, centro: Posicao) -> Bool {
-  int.absolute_value(p.lin - centro.lin) <= 1
-  && int.absolute_value(p.col - centro.col) <= 1
+  distancia(p, centro) <= 1
 }
 pub fn visivel_examples() {
+  // Casas dentro do campo de visão
   check.eq(visivel(Posicao(8, 8), Posicao(9, 9)), True)
   check.eq(visivel(Posicao(9, 9), Posicao(9, 9)), True)
+  // Casas fora do campo de visão
   check.eq(visivel(Posicao(11, 9), Posicao(9, 9)), False)
   check.eq(visivel(Posicao(9, 7), Posicao(9, 9)), False)
+  check.eq(visivel(Posicao(11, 11), Posicao(9, 9)), False)
 }
 
 /// Retorna a distância entre *a* e *b*, a maior diferença entre as linhas ou entre as colunas. As paredes são
@@ -933,9 +912,12 @@ pub fn adversario_perto(jogadores: List(Jogador), jogador_atual: Jogador) -> Boo
 pub fn adversario_perto_examples() {
   let jogador_atual = Jogador(1, Posicao(9, 9), Andando)
   let com = fn(p) { [jogador_atual, Jogador(2, p, Andando)] }
+  // Adversário já está visível
   check.eq(adversario_perto(com(Posicao(10, 10)), jogador_atual), False)
+  // Adversário entre 2 e 4 casas de distância
   check.eq(adversario_perto(com(Posicao(9, 11)), jogador_atual), True)
   check.eq(adversario_perto(com(Posicao(13, 5)), jogador_atual), True)
+  // Adversário longe ou inexistente
   check.eq(adversario_perto(com(Posicao(9, 14)), jogador_atual), False)
   check.eq(adversario_perto([jogador_atual], jogador_atual), False)
 }
@@ -955,8 +937,10 @@ pub fn adversario_na_porta(jogadores: List(Jogador), numero: Int) -> Bool {
 pub fn adversario_na_porta_examples() {
   let posicao = Posicao(1, 1)
   let jogadores = [Jogador(1, posicao, ResolvendoEnigma(enigma_teste(), 5)), Jogador(2, posicao, Andando)]
+  // Jogadores andando ou bloqueados não estão resolvendo
   check.eq(resolvendo(Andando), False)
   check.eq(resolvendo(Bloqueado(3)), False)
+  // Apenas o adversário recebe o aviso
   check.eq(adversario_na_porta(jogadores, 2), True)
   check.eq(adversario_na_porta(jogadores, 1), False)
 }
@@ -975,6 +959,7 @@ pub fn porta_visivel_examples() {
   let na_porta = Jogador(2, Posicao(1, 3), ResolvendoEnigma(enigma_teste(), 9))
   check.eq(porta_visivel(Partida(..partida_base, jogadores: [longe, parado]), longe), False)
   check.eq(porta_visivel(Partida(..partida_base, jogadores: [perto, parado]), perto), True)
+  // Porta longe, mas o adversário está resolvendo o enigma
   check.eq(porta_visivel(Partida(..partida_base, jogadores: [longe, na_porta]), longe), True)
 }
 
@@ -998,8 +983,10 @@ pub fn segundos_restantes(tiques: Int) -> Int {
 }
 pub fn segundos_restantes_examples() {
   check.eq(segundos_restantes(0), 0)
+  // Menos de um segundo -> mostra 1
   check.eq(segundos_restantes(1), 1)
   check.eq(segundos_restantes(90), 9)
+  // Arredonda para 10 segundos
   check.eq(segundos_restantes(91), 10)
 }
 
@@ -1030,8 +1017,11 @@ pub fn empilha(imagens: List(Image)) -> Image {
 pub fn empilha_examples() {
   let topo = image.square(14, fill.blue)
   let base = image.circle(5, fill.gold)
+  // Lista vazia -> imagem vazia
   check.same(empilha([]), image.empty)
   check.same(empilha([topo, base]), image.above(topo, base))
+  let meio = image.square(8, fill.black)
+  check.same(empilha([topo, meio, base]), image.above(image.above(topo, meio), base))
 }
 
 ///coloca a *imagem* centralizada na casa *p* da *cena*.
@@ -1074,10 +1064,8 @@ pub fn personagem(numero: Int, destaque: Bool) -> Image {
 }
 pub fn personagem_examples() {
   check.same(personagem(2, False), image.square(10, style.fill(color.blue)))
-  check.same(
-    personagem(1, True),
-    image.square(10, style.join([style.fill(color.red), style.stroke(color.black), style.stroke_width(3)])),
-  )
+  // Próprio personagem com contorno
+  check.same(personagem(1, True), image.square(10, style.join([style.fill(color.red), style.stroke(color.black), style.stroke_width(3)])))
 }
 
 ///coloca na *cena* o personagem do *jogador*, destacado se for o jogador *jogador_atual*.
@@ -1098,21 +1086,17 @@ pub fn coloca_jogador(cena: Image, jogador: Jogador, jogador_atual: Int) -> Imag
 pub fn coloca_jogador_examples() {
   let cena = image.empty_scene(480, 480)
   let j = Jogador(2, Posicao(1, 2), Andando)
-  check.same(
-    coloca_jogador(cena, j, 1),
-    image.place_image(cena, 66, 36, image.square(10, style.fill(color.blue))),
-  )
+  check.same(coloca_jogador(cena, j, 1), image.place_image(cena, 66, 36, image.square(10, style.fill(color.blue))))
 }
 
 ///desenha o labirinto para o jogador *jogador_atual* com tudo escuro, exceto o quadrado 3x3 ao redor dele
 ///mostra a porta quando ela está visível e o adversário quando ele está no campo de visão
 pub fn desenha_mapa(partida: Partida, jogador_atual: Jogador) -> Image {
   let fundo = image.rectangle(tamanho * lado_casa, tamanho * lado_casa, fill.black)
-  let visiveis = list.filter(todas_as_casas(), fn(p) { visivel(p, jogador_atual.posicao) })
   let com_casas =
-    list.fold(visiveis, fundo, fn(cena, p) {
-      coloca(cena, p, desenha_casa(partida.mapa, p))
-    })
+    todas_as_casas()
+    |> list.filter(fn(p) { visivel(p, jogador_atual.posicao) })
+    |> list.fold(fundo, fn(cena, p) { coloca(cena, p, desenha_casa(partida.mapa, p)) })
   let com_porta = case porta_visivel(partida, jogador_atual) {
     True -> coloca(com_casas, partida.mapa.porta, desenha_porta())
     False -> com_casas
@@ -1195,14 +1179,13 @@ pub fn tela_labirinto(partida: Partida, jogador_atual: Jogador) -> Image {
 
 ///desenha a tela do enigma, a expressão, as três alternativas e o tempo restante
 pub fn tela_enigma(enigma: Enigma, tiques: Int) -> Image {
-  let alternativas =
-    list.index_map(enigma.alternativas, fn(a, i) {
+  let alternativas = list.index_map(enigma.alternativas, fn(a, i) {
       texto(int.to_string(i + 1) <> ") " <> int.to_string(a), 28)
     })
-  let instrucoes = [texto("Resolva a expressão:", 22), texto(enigma.expressao <> " = ?", 32)]
   let rodape = [texto("Tempo: " <> int.to_string(segundos_restantes(tiques)) <> " s", 22),
     texto("Pressione 1, 2 ou 3", 18)]
-  empilha(list.append(instrucoes, list.append(alternativas, rodape)))
+  empilha([texto("Resolva a expressão:", 22), texto(enigma.expressao <> " = ?", 32),
+    ..list.append(alternativas, rodape)])
 }
 
 ///desenha a tela de bloqueio, com o tempo restante
@@ -1229,9 +1212,7 @@ pub fn tela(estado: Estado, numero: Int) -> Image {
   image.overlay(conteudo, image.rectangle(largura, altura, fill.white))
 }
 
-///
-/// Partida para os exemplos com um mapa pequeno, e os dois jogadores no início
-///
+/// Partida para os exemplos com um mapa pequeno e os dois jogadores na mesma casa.
 pub fn partida_teste() -> Partida {
   Partida([Jogador(1, Posicao(1, 1), Andando), Jogador(2, Posicao(1, 1), Andando)], mapa_teste())
 }
